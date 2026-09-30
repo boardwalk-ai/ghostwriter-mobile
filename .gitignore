@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Go
+backend/go-api/server
+*.exe
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Runtime data written by the backend
+backend/go-api/data/
+backend/python-agent/data/
