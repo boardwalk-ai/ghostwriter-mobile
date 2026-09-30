@@ -5,12 +5,17 @@ GhostWriter as a standalone Android + iOS app, split out of [boardwalk-ai/Cockpi
 ```
 ghostwriter-mobile/
 ├── app/                    Flutter app (android/ ios/ web/)
-└── backend/
-    ├── go-api/             HTTP API the app talks to        :8080
-    └── python-agent/       LLM agent the Go API calls       :8090
+├── backend/
+│   ├── go-api/             HTTP API the app talks to        :8080
+│   └── python-agent/       LLM agent the Go API calls       :8090
+└── studio/                 Study Studio app (separate) — see studio/README.md
 ```
 
 App → Go API (`:8080`) → Python agent (`:8090`) → OpenRouter.
+
+`studio/` is its own Flutter app (Study Studio, copied from Cockpit) with its own
+backend at `https://api.octopilothub.com`. Setup and run steps are in
+[studio/README.md](studio/README.md).
 
 ## Run locally
 

@@ -1,0 +1,22 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
+
+linter:
+  rules:
+    prefer_single_quotes: true
+    directives_ordering: true
+    require_trailing_commas: true
+    # Over-triggers on `if (x != null) Wrapper(child: ...x...)` where the
+    # element is a wrapper rather than the bare nullable value.
+    use_null_aware_elements: false
