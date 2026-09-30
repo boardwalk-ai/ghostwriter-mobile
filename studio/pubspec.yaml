@@ -1,0 +1,47 @@
+# Study Studio — standalone app (Android + iOS + web).
+#
+# This folder is both the runnable Flutter app and a Dart pub workspace root:
+# the Study Studio module and its three Cockpit foundation packages live in
+# packages/ and resolve to this app's single pubspec.lock.
+name: studystudio
+description: "Study Studio — turn any material into an AI study environment."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+workspace:
+  - packages/cockpit_core
+  - packages/cockpit_ui
+  - packages/cockpit_module
+  - packages/study_studio
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  flutter_riverpod: ^2.6.1
+  go_router: ^14.6.2
+  cockpit_ui:
+    path: packages/cockpit_ui
+  study_studio:
+    path: packages/study_studio
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  # The module references this image by bare path, so the host app bundles it.
+  assets:
+    - assets/images/ai_study_companion.png
+
+  # `Outfit` is the app font (CockpitFonts.brand); the host app provides it.
+  fonts:
+    - family: Outfit
+      fonts:
+        - asset: assets/fonts/Outfit-VariableFont_wght.ttf
