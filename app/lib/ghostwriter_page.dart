@@ -509,6 +509,7 @@ class _GhostWriterPageState extends State<GhostWriterPage> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 850;
+        final phone = constraints.maxWidth < 500;
 
         return SingleChildScrollView(
           padding: EdgeInsets.fromLTRB(
@@ -696,8 +697,8 @@ class _GhostWriterPageState extends State<GhostWriterPage> {
                                   borderRadius: BorderRadius.circular(999),
                                   child: Container(
                                     height: 50,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 18,
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: phone ? 15 : 18,
                                     ),
                                     decoration: BoxDecoration(
                                       color: const Color(0xFF211012),
@@ -707,23 +708,25 @@ class _GhostWriterPageState extends State<GhostWriterPage> {
                                         width: 1,
                                       ),
                                     ),
-                                    child: const Row(
+                                    child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(
+                                        const Icon(
                                           Icons.language_rounded,
                                           color: Colors.white,
                                           size: 19,
                                         ),
-                                        SizedBox(width: 10),
-                                        Text(
-                                          'Source',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w700,
+                                        if (!phone) ...const [
+                                          SizedBox(width: 10),
+                                          Text(
+                                            'Source',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w700,
+                                            ),
                                           ),
-                                        ),
+                                        ],
                                       ],
                                     ),
                                   ),
@@ -731,29 +734,31 @@ class _GhostWriterPageState extends State<GhostWriterPage> {
 
                                 const Spacer(),
 
-                                InkWell(
-                                  onTap: () {},
-                                  borderRadius: BorderRadius.circular(999),
-                                  child: Container(
-                                    width: 50,
-                                    height: 50,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF111214),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: const Color(0xFF303236),
-                                        width: 1,
+                                if (!phone) ...[
+                                  InkWell(
+                                    onTap: () {},
+                                    borderRadius: BorderRadius.circular(999),
+                                    child: Container(
+                                      width: 50,
+                                      height: 50,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF111214),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: const Color(0xFF303236),
+                                          width: 1,
+                                        ),
+                                      ),
+                                      child: const Icon(
+                                        Icons.mic_none_rounded,
+                                        color: Color(0xFFD7D7D9),
+                                        size: 23,
                                       ),
                                     ),
-                                    child: const Icon(
-                                      Icons.mic_none_rounded,
-                                      color: Color(0xFFD7D7D9),
-                                      size: 23,
-                                    ),
                                   ),
-                                ),
 
-                                const SizedBox(width: 12),
+                                  const SizedBox(width: 12),
+                                ],
 
                                 InkWell(
                                   onTap: _start,
@@ -1704,53 +1709,83 @@ class _GhostWriterTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final phone = MediaQuery.sizeOf(context).width < 850;
+
     return Container(
-      height: 80,
+      height: phone ? 64 : 80,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: const BoxDecoration(
         color: Color(0xFF090A0B),
         border: Border(bottom: BorderSide(color: Color(0xFF17181B))),
       ),
-      child: Row(
-        children: [
-          _OutlinePillButton(
-            icon: Icons.arrow_back_ios_new,
-            label: 'Home',
-            onTap: () {},
-          ),
-          const Spacer(),
-          const Icon(Icons.notifications_none_rounded, color: Colors.white60),
-          const SizedBox(width: 20),
-          _TopChip(
+      child: phone ? _buildPhone() : _buildDesktop(),
+    );
+  }
+
+  Widget _buildPhone() {
+    return Row(
+      children: [
+        Flexible(
+          child: _TopChip(
             label: sessionName.toUpperCase(),
             dotColor: const Color(0xFFA7D6FF),
           ),
-          const SizedBox(width: 10),
-          _TopChip(
-            label: '$credits OCTOCREDITS',
-            dotColor: const Color(0xFFFFD54F),
+        ),
+        const SizedBox(width: 8),
+        _TopChip(label: '$credits CR', dotColor: const Color(0xFFFFD54F)),
+        const Spacer(),
+        IconButton(
+          tooltip: saving ? 'Saving...' : 'Save',
+          onPressed: saving ? null : onSave,
+          icon: Icon(
+            saving ? Icons.hourglass_top_rounded : Icons.save_outlined,
+            color: Colors.white70,
           ),
-          const SizedBox(width: 10),
-          _OutlinePillButton(
-            icon: Icons.storefront_outlined,
-            label: 'Store',
-            onTap: () {},
-            accent: true,
-          ),
-          const SizedBox(width: 10),
-          _OutlinePillButton(
-            icon: saving ? Icons.hourglass_top_rounded : Icons.save_outlined,
-            label: saving ? 'Saving...' : 'Save',
-            onTap: saving ? () {} : onSave,
-          ),
-          const SizedBox(width: 18),
-          const CircleAvatar(
-            radius: 18,
-            backgroundColor: Color(0xFF25262A),
-            child: Icon(Icons.person, color: Colors.white),
-          ),
-        ],
-      ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDesktop() {
+    return Row(
+      children: [
+        _OutlinePillButton(
+          icon: Icons.arrow_back_ios_new,
+          label: 'Home',
+          onTap: () {},
+        ),
+        const Spacer(),
+        const Icon(Icons.notifications_none_rounded, color: Colors.white60),
+        const SizedBox(width: 20),
+        _TopChip(
+          label: sessionName.toUpperCase(),
+          dotColor: const Color(0xFFA7D6FF),
+        ),
+        const SizedBox(width: 10),
+        _TopChip(
+          label: '$credits OCTOCREDITS',
+          dotColor: const Color(0xFFFFD54F),
+        ),
+        const SizedBox(width: 10),
+        _OutlinePillButton(
+          icon: Icons.storefront_outlined,
+          label: 'Store',
+          onTap: () {},
+          accent: true,
+        ),
+        const SizedBox(width: 10),
+        _OutlinePillButton(
+          icon: saving ? Icons.hourglass_top_rounded : Icons.save_outlined,
+          label: saving ? 'Saving...' : 'Save',
+          onTap: saving ? () {} : onSave,
+        ),
+        const SizedBox(width: 18),
+        const CircleAvatar(
+          radius: 18,
+          backgroundColor: Color(0xFF25262A),
+          child: Icon(Icons.person, color: Colors.white),
+        ),
+      ],
     );
   }
 }
@@ -1907,13 +1942,17 @@ class _TopChip extends StatelessWidget {
             ),
             const SizedBox(width: 7),
           ],
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white60,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1,
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white60,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1,
+              ),
             ),
           ),
         ],

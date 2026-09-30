@@ -1,9 +1,20 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class GhostWriterApi {
-  GhostWriterApi({this.baseUrl = 'http://127.0.0.1:8080'});
+  GhostWriterApi({String? baseUrl}) : baseUrl = baseUrl ?? defaultBaseUrl;
+
+  /// Override with `--dart-define=GHOSTWRITER_API_URL=https://...`.
+  /// Falls back to the host machine's Go API (10.0.2.2 on the Android emulator).
+  static String get defaultBaseUrl {
+    const configured = String.fromEnvironment('GHOSTWRITER_API_URL');
+    if (configured.isNotEmpty) return configured;
+    final androidEmulator =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    return androidEmulator ? 'http://10.0.2.2:8080' : 'http://127.0.0.1:8080';
+  }
 
   final String baseUrl;
 
