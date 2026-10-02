@@ -2,7 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'demo/demo_run.dart';
 import 'ghostwriter_api.dart';
+import 'mobile/mobile_background.dart';
+import 'mobile/mobile_chat.dart';
+import 'mobile/mobile_drawer.dart';
+import 'mobile/mobile_landing.dart';
+import 'mobile/mobile_theme.dart';
+import 'mobile/mobile_top_bar.dart';
+import 'platform.dart';
 
 enum GhostWriterStage { idle, typing, generating, finished }
 
@@ -260,6 +268,7 @@ class _GhostWriterPageState extends State<GhostWriterPage> {
   @override
   void dispose() {
     _eventSubscription?.cancel();
+    _demoTimer?.cancel();
     _promptController.dispose();
     _chatController.dispose();
     _askOctoController.dispose();
@@ -271,6 +280,8 @@ class _GhostWriterPageState extends State<GhostWriterPage> {
 
     final message = _promptController.text.trim();
     if (message.isEmpty) return;
+
+    if (kGwDemo) return _startDemo(message);
 
     _starting = true;
 
@@ -413,6 +424,12 @@ class _GhostWriterPageState extends State<GhostWriterPage> {
     final message = _chatController.text.trim();
     if (message.isEmpty) return;
 
+    if (kGwDemo) {
+      _chatController.clear();
+      setState(() => _chatMessages.add(message));
+      return;
+    }
+
     final runId = _runId;
 
     if (runId == null) {
@@ -451,8 +468,192 @@ class _GhostWriterPageState extends State<GhostWriterPage> {
     }
   }
 
+  void _newChat() {
+    setState(() {
+      _stage = GhostWriterStage.idle;
+      _promptController.clear();
+      _chatController.clear();
+      _chatMessages.clear();
+      _assistantText = '';
+      _errorMessage = null;
+      _pendingField = null;
+      _pendingQuestion = null;
+      _runId = null;
+      _agentContext = {};
+    });
+  }
+
+  void _openThread(int index) {
+    final thread = _threads[index];
+    final status = thread['status']?.toString() ?? 'Saved';
+
+    setState(() {
+      _selectedThreadIndex = index;
+      _promptController.text = thread['prompt']?.toString() ?? '';
+      _assistantText = thread['essay']?.toString() ?? '';
+      _stage = status.toLowerCase() == 'finished'
+          ? GhostWriterStage.finished
+          : GhostWriterStage.generating;
+      _agentContext = {
+        'bibliography': thread['bibliography'] ?? '',
+        'citationStyle': thread['citationStyle'] ?? '',
+        'wordCount': thread['wordCount'] ?? 0,
+        'sources': thread['sources'] ?? [],
+      };
+    });
+  }
+
+  Timer? _demoTimer;
+
+  /// Streams the canned essay word by word, then finishes the run.
+  void _startDemo(String message) {
+    final words = kDemoEssay.split(' ');
+    var tick = 0;
+
+    setState(() {
+      _chatMessages
+        ..clear()
+        ..add(message);
+      _assistantText = '';
+      _errorMessage = null;
+      _pendingField = null;
+      _pendingQuestion = null;
+      _agentContext = {'citationStyle': 'APA', 'wordCount': words.length};
+      _stage = GhostWriterStage.generating;
+    });
+
+    _demoTimer?.cancel();
+    _demoTimer = Timer.periodic(const Duration(milliseconds: 70), (timer) {
+      if (!mounted) return timer.cancel();
+
+      // Hold on the typing indicator for a moment before the first words.
+      final shown = ((++tick - 20) * 2).clamp(0, words.length);
+      if (shown == 0) return;
+
+      setState(() {
+        _assistantText = words.take(shown).join(' ');
+
+        if (shown == words.length) {
+          timer.cancel();
+          _agentContext = {
+            ..._agentContext,
+            'essay': kDemoEssay,
+            'bibliography': kDemoBibliography,
+            'sources': kDemoSources,
+          };
+          _stage = GhostWriterStage.finished;
+        }
+      });
+    });
+  }
+
+  dynamic _draftSetting(String key) =>
+      _agentContext[key] ??
+      (_agentContext['draftSettings'] is Map
+          ? (_agentContext['draftSettings'] as Map)[key]
+          : null);
+
+  List<Map<String, dynamic>> get _sourceList {
+    final raw = _agentContext['compactedSources'] ?? _agentContext['sources'];
+
+    return [
+      if (raw is List)
+        for (final item in raw)
+          if (item is Map)
+            item.map((key, value) => MapEntry(key.toString(), value)),
+    ];
+  }
+
+  Widget _buildMobileChat() {
+    final title = _promptController.text.trim();
+    final contextEssay = (_agentContext['essay'] ?? '').toString().trim();
+
+    return GhostWriterMobileChat(
+      finished: _stage == GhostWriterStage.finished,
+      title: title.isEmpty ? 'Untitled GhostWriter Essay' : title,
+      citationStyle: (_draftSetting('citationStyle') ?? 'APA').toString(),
+      wordCount:
+          int.tryParse((_draftSetting('wordCount') ?? 0).toString()) ?? 0,
+      messages: List.of(_chatMessages),
+      assistantText: _assistantText,
+      essay: contextEssay.isNotEmpty ? contextEssay : _assistantText.trim(),
+      bibliography: (_agentContext['bibliography'] ?? '').toString().trim(),
+      sources: _sourceList,
+      pendingQuestion: _pendingQuestion,
+      errorMessage: _errorMessage,
+      onRetry: _retryStream,
+      composerController: _chatController,
+      onSend: _sendComposerMessage,
+    );
+  }
+
+  bool get _onLanding =>
+      _stage == GhostWriterStage.idle || _stage == GhostWriterStage.typing;
+
+  Widget _buildMobile() {
+    return Scaffold(
+      backgroundColor: GwColors.background,
+      drawerScrimColor: Colors.black.withValues(alpha: 0.55),
+      drawerEdgeDragWidth: 36,
+      drawer: GhostWriterMobileDrawer(
+        threads: _threads,
+        folders: _folders,
+        loading: _workspaceLoading,
+        selectedIndex: _onLanding ? null : _selectedThreadIndex,
+        sessionName: _sessionName,
+        credits: _credits,
+        onNewChat: _newChat,
+        onOpenThread: _openThread,
+        onRefresh: _loadWorkspace,
+      ),
+      body: GwBackground(
+        child: SafeArea(
+          child: Column(
+            children: [
+              GhostWriterMobileTopBar(
+                credits: _credits,
+                saving: _saving,
+                onSave: _onLanding ? null : _saveCurrentThread,
+              ),
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 380),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  child: _onLanding
+                      ? GhostWriterMobileLanding(
+                          key: const ValueKey('landing'),
+                          controller: _promptController,
+                          canStart: _stage == GhostWriterStage.typing,
+                          userName: _sessionName.toUpperCase() == 'GUEST'
+                              ? null
+                              : _sessionName,
+                          onChanged: (value) {
+                            setState(() {
+                              _stage = value.trim().isEmpty
+                                  ? GhostWriterStage.idle
+                                  : GhostWriterStage.typing;
+                            });
+                          },
+                          onStart: _start,
+                        )
+                      : KeyedSubtree(
+                          key: const ValueKey('workspace'),
+                          child: _buildMobileChat(),
+                        ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (isMobilePlatform) return _buildMobile();
+
     final width = MediaQuery.sizeOf(context).width;
     final desktop = width >= 1100;
 
@@ -957,20 +1158,7 @@ class _GhostWriterPageState extends State<GhostWriterPage> {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () {
-                setState(() {
-                  _stage = GhostWriterStage.idle;
-                  _promptController.clear();
-                  _chatController.clear();
-                  _chatMessages.clear();
-                  _assistantText = '';
-                  _errorMessage = null;
-                  _pendingField = null;
-                  _pendingQuestion = null;
-                  _runId = null;
-                  _agentContext = {};
-                });
-              },
+              onPressed: _newChat,
               icon: const Icon(Icons.add, size: 18),
               label: const Text('New chat'),
               style: OutlinedButton.styleFrom(
@@ -1089,28 +1277,7 @@ class _GhostWriterPageState extends State<GhostWriterPage> {
                     final status = thread['status']?.toString() ?? 'Saved';
 
                     return InkWell(
-                      onTap: () {
-                        setState(() {
-                          _selectedThreadIndex = index;
-
-                          final prompt = thread['prompt']?.toString() ?? '';
-
-                          final essay = thread['essay']?.toString() ?? '';
-
-                          _promptController.text = prompt;
-                          _assistantText = essay;
-                          _stage = status.toLowerCase() == 'finished'
-                              ? GhostWriterStage.finished
-                              : GhostWriterStage.generating;
-
-                          _agentContext = {
-                            'bibliography': thread['bibliography'] ?? '',
-                            'citationStyle': thread['citationStyle'] ?? '',
-                            'wordCount': thread['wordCount'] ?? 0,
-                            'sources': thread['sources'] ?? [],
-                          };
-                        });
-                      },
+                      onTap: () => _openThread(index),
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
